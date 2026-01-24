@@ -2,47 +2,51 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>PICC 任務建立</title>
 
-  <!-- LIFF SDK -->
+  <!-- LINE LIFF SDK -->
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f4f6f8;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", Arial, sans-serif;
+      background-color: #f2f2f2;
       margin: 0;
-      padding: 20px;
+      padding: 0;
     }
-    .card {
+
+    .container {
+      max-width: 420px;
+      margin: 60px auto;
       background: #ffffff;
       border-radius: 12px;
-      padding: 20px;
-      max-width: 420px;
-      margin: auto;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      padding: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
-    h2 {
+
+    h1 {
       text-align: center;
-      margin-top: 0;
+      margin-bottom: 24px;
     }
+
     label {
       display: block;
-      margin-top: 15px;
-      font-weight: 600;
+      margin-top: 16px;
+      font-weight: bold;
     }
+
     input {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       margin-top: 6px;
       border-radius: 8px;
       border: 1px solid #ccc;
       font-size: 16px;
     }
+
     button {
+      margin-top: 24px;
       width: 100%;
-      margin-top: 25px;
       padding: 14px;
       background-color: #06c755;
       color: white;
@@ -50,59 +54,91 @@
       border-radius: 10px;
       font-size: 18px;
       font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:active {
+      opacity: 0.9;
+    }
+
+    .hint {
+      margin-top: 12px;
+      color: #888;
+      font-size: 14px;
+      text-align: center;
     }
   </style>
 </head>
 
 <body>
-  <div class="card">
-    <h2>PICC 任務建立</h2>
+  <div class="container">
+    <h1>PICC 任務建立</h1>
 
-    <label>床號</label>
-    <input id="bed" placeholder="例如：12A">
+    <label for="bed">床號</label>
+    <input id="bed" placeholder="例如：12A" />
 
-    <label>病歷號</label>
-    <input id="mrn" placeholder="例如：12345678">
+    <label for="mrn">病歷號</label>
+    <input id="mrn" placeholder="例如：12345678" />
 
-    <label>病人姓名</label>
-    <input id="name" placeholder="例如：王大明">
+    <label for="name">病人姓名</label>
+    <input id="name" placeholder="例如：王大明" />
 
     <button onclick="submitForm()">送出</button>
+
+    <div class="hint">請於 LINE App 內開啟</div>
   </div>
 
   <script>
+    // 🔴 換成你自己的 LIFF ID
     const LIFF_ID = "2008960440-PK37CLiF";
-    const N8N_WEBHOOK = "https://example.com"; // 之後會換成 n8n
 
-    liff.init({ liffId: LIFF_ID })
-      .then(() => {
+    async function initLIFF() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+
+        // ⚠️ 只在「不是登入狀態」時才登入
         if (!liff.isLoggedIn()) {
-          liff.login();
+          liff.login({
+            redirectUri: window.location.href
+          });
+          return;
         }
-      });
 
-    async function submitForm() {
-      const data = {
-        bed: document.getElementById("bed").value,
-        mrn: document.getElementById("mrn").value,
-        patient_name: document.getElementById("name").value,
-        userId: liff.getContext().userId
-      };
+        console.log("LIFF 初始化完成，已登入");
 
-      if (!data.bed || !data.mrn || !data.patient_name) {
-        alert("請填寫所有欄位");
+      } catch (err) {
+        console.error("LIFF 初始化失敗", err);
+        alert("LIFF 初始化失敗，請確認是否在 LINE App 內開啟");
+      }
+    }
+
+    function submitForm() {
+      const bed = document.getElementById("bed").value.trim();
+      const mrn = document.getElementById("mrn").value.trim();
+      const name = document.getElementById("name").value.trim();
+
+      if (!bed || !mrn || !name) {
+        alert("請完整填寫所有欄位");
         return;
       }
 
-      await fetch(N8N_WEBHOOK, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-      });
+      const data = {
+        bed,
+        mrn,
+        name,
+        userId: liff.getContext()?.userId || "unknown"
+      };
 
-      alert("已送出 PICC 任務");
-      liff.closeWindow();
+      console.log("送出資料：", data);
+
+      alert("表單送出成功（目前僅示範，尚未接後端）");
+
+      // 如果你之後要關閉 LIFF
+      // liff.closeWindow();
     }
+
+    // 🚀 啟動 LIFF
+    initLIFF();
   </script>
 </body>
 </html>
