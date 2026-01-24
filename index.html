@@ -4,141 +4,161 @@
   <meta charset="UTF-8" />
   <title>PICC 任務建立</title>
 
-  <!-- LINE LIFF SDK -->
+  <!-- LIFF SDK -->
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", Arial, sans-serif;
-      background-color: #f2f2f2;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+        "Noto Sans TC", sans-serif;
+      background: #f5f6f7;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
       margin: 0;
-      padding: 0;
     }
 
-    .container {
-      max-width: 420px;
-      margin: 60px auto;
+    .card {
       background: #ffffff;
+      padding: 28px;
+      width: 360px;
       border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
     }
 
-    h1 {
+    h2 {
       text-align: center;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
 
     label {
+      font-weight: 600;
       display: block;
-      margin-top: 16px;
-      font-weight: bold;
+      margin-top: 12px;
+      margin-bottom: 6px;
     }
 
     input {
       width: 100%;
-      padding: 12px;
-      margin-top: 6px;
-      border-radius: 8px;
+      padding: 10px;
+      border-radius: 6px;
       border: 1px solid #ccc;
-      font-size: 16px;
+      font-size: 14px;
     }
 
     button {
-      margin-top: 24px;
+      margin-top: 20px;
       width: 100%;
-      padding: 14px;
-      background-color: #06c755;
-      color: white;
+      padding: 12px;
+      background: #06c755;
+      color: #fff;
       border: none;
-      border-radius: 10px;
-      font-size: 18px;
-      font-weight: bold;
+      border-radius: 8px;
+      font-size: 16px;
       cursor: pointer;
     }
 
-    button:active {
-      opacity: 0.9;
+    button:disabled {
+      background: #a5d6b3;
+      cursor: not-allowed;
     }
 
     .hint {
-      margin-top: 12px;
-      color: #888;
-      font-size: 14px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: #666;
       text-align: center;
     }
   </style>
 </head>
 
 <body>
-  <div class="container">
-    <h1>PICC 任務建立</h1>
+  <div class="card">
+    <h2>PICC 任務建立</h2>
 
-    <label for="bed">床號</label>
-    <input id="bed" placeholder="例如：12A" />
+    <label>床號</label>
+    <input id="bedNo" placeholder="例如：12A" />
 
-    <label for="mrn">病歷號</label>
+    <label>病歷號</label>
     <input id="mrn" placeholder="例如：12345678" />
 
-    <label for="name">病人姓名</label>
+    <label>病人姓名</label>
     <input id="name" placeholder="例如：王大明" />
 
     <button onclick="submitForm()">送出</button>
 
-    <div class="hint">請於 LINE App 內開啟</div>
+    <div class="hint" id="status"></div>
   </div>
 
   <script>
-    // 🔴 換成你自己的 LIFF ID
-    const LIFF_ID = "2008960440-PK37CLiF";
+    /***********************
+     * 🔧 請只改這一行
+     ***********************/
+    const N8N_WEBHOOK_URL = "https://chihwei.app.n8n.cloud/webhook/picc-booking";
+    // ↑↑↑ 換成你的 Production URL ↑↑↑
+
+    let lineUserId = null;
 
     async function initLIFF() {
       try {
-        await liff.init({ liffId: LIFF_ID });
+        // ⚠️ 不強制登入，避免 404
+        if (window.liff) {
+          await liff.init({ liffId: "YOUR_LIFF_ID", withLoginOnExternalBrowser: false });
 
-        // ⚠️ 只在「不是登入狀態」時才登入
-        if (!liff.isLoggedIn()) {
-          liff.login({
-            redirectUri: window.location.href
-          });
-          return;
+          if (liff.isInClient() && liff.isLoggedIn()) {
+            const profile = await liff.getProfile();
+            lineUserId = profile.userId;
+          }
         }
-
-        console.log("LIFF 初始化完成，已登入");
-
       } catch (err) {
-        console.error("LIFF 初始化失敗", err);
-        alert("LIFF 初始化失敗，請確認是否在 LINE App 內開啟");
+        console.warn("LIFF init skipped:", err);
       }
     }
 
-    function submitForm() {
-      const bed = document.getElementById("bed").value.trim();
+    initLIFF();
+
+    async function submitForm() {
+      const bedNo = document.getElementById("bedNo").value.trim();
       const mrn = document.getElementById("mrn").value.trim();
       const name = document.getElementById("name").value.trim();
+      const status = document.getElementById("status");
 
-      if (!bed || !mrn || !name) {
-        alert("請完整填寫所有欄位");
+      if (!bedNo || !mrn || !name) {
+        alert("請填寫所有欄位");
         return;
       }
 
-      const data = {
-        bed,
-        mrn,
-        name,
-        userId: liff.getContext()?.userId || "unknown"
-      };
+      status.innerText = "送出中…";
 
-      console.log("送出資料：", data);
+      try {
+        const res = await fetch(N8N_WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bedNo,
+            mrn,
+            name,
+            lineUserId,
+            source: "picc-liff",
+            timestamp: new Date().toISOString()
+          })
+        });
 
-      alert("表單送出成功（目前僅示範，尚未接後端）");
+        if (!res.ok) throw new Error("Webhook error");
 
-      // 如果你之後要關閉 LIFF
-      // liff.closeWindow();
+        status.innerText = "✅ 已成功送出";
+
+        // 如果是在 LINE 裡，可直接關閉
+        if (window.liff && liff.isInClient()) {
+          setTimeout(() => liff.closeWindow(), 800);
+        }
+
+      } catch (err) {
+        console.error(err);
+        status.innerText = "❌ 送出失敗，請稍後再試";
+      }
     }
-
-    // 🚀 啟動 LIFF
-    initLIFF();
   </script>
 </body>
 </html>
