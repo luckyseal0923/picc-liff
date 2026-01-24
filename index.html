@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PICC 任務建立</title>
+
+  <!-- LIFF SDK -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f4f6f8;
+      margin: 0;
+      padding: 20px;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 420px;
+      margin: auto;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    h2 {
+      text-align: center;
+      margin-top: 0;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: 600;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      margin-top: 25px;
+      padding: 14px;
+      background-color: #06c755;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <h2>PICC 任務建立</h2>
+
+    <label>床號</label>
+    <input id="bed" placeholder="例如：12A">
+
+    <label>病歷號</label>
+    <input id="mrn" placeholder="例如：12345678">
+
+    <label>病人姓名</label>
+    <input id="name" placeholder="例如：王大明">
+
+    <button onclick="submitForm()">送出</button>
+  </div>
+
+  <script>
+    const LIFF_ID = "2008960440-PK37CLiF";
+    const N8N_WEBHOOK = "https://example.com"; // 之後會換成 n8n
+
+    liff.init({ liffId: LIFF_ID })
+      .then(() => {
+        if (!liff.isLoggedIn()) {
+          liff.login();
+        }
+      });
+
+    async function submitForm() {
+      const data = {
+        bed: document.getElementById("bed").value,
+        mrn: document.getElementById("mrn").value,
+        patient_name: document.getElementById("name").value,
+        userId: liff.getContext().userId
+      };
+
+      if (!data.bed || !data.mrn || !data.patient_name) {
+        alert("請填寫所有欄位");
+        return;
+      }
+
+      await fetch(N8N_WEBHOOK, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+
+      alert("已送出 PICC 任務");
+      liff.closeWindow();
+    }
+  </script>
+</body>
+</html>
