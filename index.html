@@ -178,8 +178,8 @@ async function submitForm() {
 
   // 🔒 鎖定按鈕
   btn.disabled = true;
-  btn.innerText = "送出中…";
-  status.innerText = "送出中…";
+  btn.innerText = "送出中…請稍後";
+  status.innerText = "送出中…請稍後";
 
   try {
     const res = await fetch(N8N_WEBHOOK_URL, {
