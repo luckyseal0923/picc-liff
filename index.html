@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>PICC 任務建立</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- LIFF SDK -->
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
@@ -70,6 +70,53 @@
       color: #666;
       text-align: center;
     }
+    /* =========================
+   📱 手機友善放大（LINE / Safari）
+========================= */
+@media (max-width: 600px) {
+
+  body {
+    padding: 16px;
+    align-items: flex-start;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 100%;
+    padding: 24px 20px;
+    border-radius: 16px;
+    margin-top: 40px;
+  }
+
+  h2 {
+    font-size: 22px;
+    margin-bottom: 24px;
+  }
+
+  label {
+    font-size: 16px;
+    margin-top: 16px;
+    margin-bottom: 8px;
+  }
+
+  input {
+    font-size: 18px;
+    padding: 14px 12px;
+    border-radius: 10px;
+  }
+
+  button {
+    font-size: 18px;
+    padding: 14px;
+    border-radius: 12px;
+    margin-top: 24px;
+  }
+
+  .hint {
+    font-size: 14px;
+    margin-top: 14px;
+  }
+}
   </style>
 </head>
 
@@ -86,7 +133,7 @@
     <label>病人姓名</label>
     <input id="name" placeholder="例如：王大明" />
 
-    <button onclick="submitForm()">送出</button>
+    <button id="submitBtn" onclick="submitForm()">送出</button>
 
     <div class="hint" id="status"></div>
   </div>
@@ -117,48 +164,55 @@
     }
 
     initLIFF();
+async function submitForm() {
+  const bedNo = document.getElementById("bedNo").value.trim();
+  const mrn = document.getElementById("mrn").value.trim();
+  const name = document.getElementById("name").value.trim();
+  const status = document.getElementById("status");
+  const btn = document.getElementById("submitBtn");
 
-    async function submitForm() {
-      const bedNo = document.getElementById("bedNo").value.trim();
-      const mrn = document.getElementById("mrn").value.trim();
-      const name = document.getElementById("name").value.trim();
-      const status = document.getElementById("status");
+  if (!bedNo || !mrn || !name) {
+    alert("請填寫所有欄位");
+    return;
+  }
 
-      if (!bedNo || !mrn || !name) {
-        alert("請填寫所有欄位");
-        return;
-      }
+  // 🔒 鎖定按鈕
+  btn.disabled = true;
+  btn.innerText = "送出中…";
+  status.innerText = "送出中…";
 
-      status.innerText = "送出中…";
+  try {
+    const res = await fetch(N8N_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bedNo,
+        mrn,
+        name,
+        lineUserId,
+        source: "picc-liff",
+        timestamp: new Date().toISOString()
+      })
+    });
 
-      try {
-        const res = await fetch(N8N_WEBHOOK_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            bedNo,
-            mrn,
-            name,
-            lineUserId,
-            source: "picc-liff",
-            timestamp: new Date().toISOString()
-          })
-        });
+    if (!res.ok) throw new Error("Webhook error");
 
-        if (!res.ok) throw new Error("Webhook error");
+    status.innerText = "✅ 已成功送出";
 
-        status.innerText = "✅ 已成功送出";
-
-        // 如果是在 LINE 裡，可直接關閉
-        if (window.liff && liff.isInClient()) {
-          setTimeout(() => liff.closeWindow(), 800);
-        }
-
-      } catch (err) {
-        console.error(err);
-        status.innerText = "❌ 送出失敗，請稍後再試";
-      }
+    // 如果是在 LINE 裡，延遲關閉
+    if (window.liff && liff.isInClient()) {
+      setTimeout(() => liff.closeWindow(), 800);
     }
+
+  } catch (err) {
+    console.error(err);
+
+    // ❌ 失敗 → 解鎖按鈕，允許再送
+    btn.disabled = false;
+    btn.innerText = "送出";
+    status.innerText = "❌ 送出失敗，請稍後再試";
+  }
+}
   </script>
 </body>
 </html>
