@@ -165,11 +165,15 @@
 
     initLIFF();
 async function submitForm() {
-  const bedNo = document.getElementById("bedNo").value.trim();
-  const mrn = document.getElementById("mrn").value.trim();
-  const name = document.getElementById("name").value.trim();
+  const bedNoEl = document.getElementById("bedNo");
+  const mrnEl = document.getElementById("mrn");
+  const nameEl = document.getElementById("name");
   const status = document.getElementById("status");
   const btn = document.getElementById("submitBtn");
+
+  const bedNo = bedNoEl.value.trim();
+  const mrn = mrnEl.value.trim();
+  const name = nameEl.value.trim();
 
   if (!bedNo || !mrn || !name) {
     alert("請填寫所有欄位");
@@ -197,17 +201,29 @@ async function submitForm() {
 
     if (!res.ok) throw new Error("Webhook error");
 
+    // ✅ 成功回饋
     status.innerText = "✅ 已成功送出";
 
-    // 如果是在 LINE 裡，延遲關閉
+    // ✅ 清空欄位（關鍵）
+    bedNoEl.value = "";
+    mrnEl.value = "";
+    nameEl.value = "";
+
+    // ✅ 解鎖按鈕，允許下一單
+    btn.disabled = false;
+    btn.innerText = "送出";
+
+    // 👉 如果你「想要自動關閉 LIFF」，打開下面這段
+    /*
     if (window.liff && liff.isInClient()) {
       setTimeout(() => liff.closeWindow(), 800);
     }
+    */
 
   } catch (err) {
     console.error(err);
 
-    // ❌ 失敗 → 解鎖按鈕，允許再送
+    // ❌ 失敗 → 解鎖
     btn.disabled = false;
     btn.innerText = "送出";
     status.innerText = "❌ 送出失敗，請稍後再試";
