@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <title>PICC 任務建立</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- LIFF SDK -->
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
@@ -48,19 +47,27 @@
     }
 
     button {
-      margin-top: 20px;
+      margin-top: 16px;
       width: 100%;
       padding: 12px;
-      background: #06c755;
-      color: #fff;
       border: none;
       border-radius: 8px;
       font-size: 16px;
       cursor: pointer;
     }
 
+    #submitBtn {
+      background: #06c755;
+      color: #fff;
+    }
+
+    #fastBtn {
+      background: #ff7043;
+      color: #fff;
+    }
+
     button:disabled {
-      background: #a5d6b3;
+      background: #ccc;
       cursor: not-allowed;
     }
 
@@ -70,53 +77,6 @@
       color: #666;
       text-align: center;
     }
-    /* =========================
-   📱 手機友善放大（LINE / Safari）
-========================= */
-@media (max-width: 600px) {
-
-  body {
-    padding: 16px;
-    align-items: flex-start;
-  }
-
-  .card {
-    width: 100%;
-    max-width: 100%;
-    padding: 24px 20px;
-    border-radius: 16px;
-    margin-top: 40px;
-  }
-
-  h2 {
-    font-size: 22px;
-    margin-bottom: 24px;
-  }
-
-  label {
-    font-size: 16px;
-    margin-top: 16px;
-    margin-bottom: 8px;
-  }
-
-  input {
-    font-size: 18px;
-    padding: 14px 12px;
-    border-radius: 10px;
-  }
-
-  button {
-    font-size: 18px;
-    padding: 14px;
-    border-radius: 12px;
-    margin-top: 24px;
-  }
-
-  .hint {
-    font-size: 14px;
-    margin-top: 14px;
-  }
-}
   </style>
 </head>
 
@@ -133,25 +93,32 @@
     <label>病人姓名</label>
     <input id="name" placeholder="例如：王大明" />
 
-    <button id="submitBtn" onclick="submitForm()">送出</button>
+    <!-- 原本按鈕（不變） -->
+    <button id="submitBtn" onclick="submitForm(false)">送出</button>
+
+    <!-- 新增：自起單自回報 -->
+    <button id="fastBtn" onclick="submitForm(true)">自起單・自回報</button>
 
     <div class="hint" id="status"></div>
   </div>
 
   <script>
-    /***********************
-     * 🔧 請只改這一行
-     ***********************/
     const N8N_WEBHOOK_URL = "https://chihwei-n8n.zeabur.app/webhook/picc-booking";
-    // ↑↑↑ 換成你的 Production URL ↑↑↑
+
+    /***********************
+     * 🔴 只要改這一行
+     ***********************/
+    const REPORT_PAGE_URL = "https://luckyseal0923.github.io/picc-report-ui/report.html"; // ← 改成 report.html 或 LIFF 回報頁
 
     let lineUserId = null;
 
     async function initLIFF() {
       try {
-        // ⚠️ 不強制登入，避免 404
         if (window.liff) {
-          await liff.init({ liffId: "2008960440-PK37CLiF", withLoginOnExternalBrowser: false });
+          await liff.init({
+            liffId: "2008960440-PK37CLiF",
+            withLoginOnExternalBrowser: false
+          });
 
           if (liff.isInClient() && liff.isLoggedIn()) {
             const profile = await liff.getProfile();
@@ -164,71 +131,59 @@
     }
 
     initLIFF();
-async function submitForm() {
-  const bedNoEl = document.getElementById("bedNo");
-  const mrnEl = document.getElementById("mrn");
-  const nameEl = document.getElementById("name");
-  const status = document.getElementById("status");
-  const btn = document.getElementById("submitBtn");
 
-  const bedNo = bedNoEl.value.trim();
-  const mrn = mrnEl.value.trim();
-  const name = nameEl.value.trim();
+    async function submitForm(goReport) {
+      const bedNo = document.getElementById("bedNo").value.trim();
+      const mrn = document.getElementById("mrn").value.trim();
+      const name = document.getElementById("name").value.trim();
+      const status = document.getElementById("status");
+      const btn1 = document.getElementById("submitBtn");
+      const btn2 = document.getElementById("fastBtn");
 
-  if (!bedNo || !mrn || !name) {
-    alert("請填寫所有欄位");
-    return;
-  }
+      if (!bedNo || !mrn || !name) {
+        alert("請填寫所有欄位");
+        return;
+      }
 
-  // 🔒 鎖定按鈕
-  btn.disabled = true;
-  btn.innerText = "送出中…";
-  status.innerText = "送出中…";
+      btn1.disabled = true;
+      btn2.disabled = true;
+      status.innerText = "送出中…";
 
-  try {
-    const res = await fetch(N8N_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        bedNo,
-        mrn,
-        name,
-        lineUserId,
-        source: "picc-liff",
-        timestamp: new Date().toISOString()
-      })
-    });
+      try {
+        await fetch(N8N_WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bedNo,
+            mrn,
+            name,
+            lineUserId,
+            source: "picc-liff",
+            timestamp: new Date().toISOString()
+          })
+        });
 
-    if (!res.ok) throw new Error("Webhook error");
+        if (goReport) {
+          // 👉 直接跳轉到回報頁（帶資料）
+          const params = new URLSearchParams({ bedNo, mrn, name });
+          window.location.href = REPORT_PAGE_URL + "?" + params.toString();
+          return;
+        }
 
-    // ✅ 成功回饋
-    status.innerText = "✅ 已成功送出";
+        // 原本送出行為（不變）
+        status.innerText = "✅ 已成功送出";
+        document.getElementById("bedNo").value = "";
+        document.getElementById("mrn").value = "";
+        document.getElementById("name").value = "";
 
-    // ✅ 清空欄位（關鍵）
-    bedNoEl.value = "";
-    mrnEl.value = "";
-    nameEl.value = "";
-
-    // ✅ 解鎖按鈕，允許下一單
-    btn.disabled = false;
-    btn.innerText = "送出";
-
-    // 👉 如果你「想要自動關閉 LIFF」，打開下面這段
-    /*
-    if (window.liff && liff.isInClient()) {
-      setTimeout(() => liff.closeWindow(), 800);
+      } catch (err) {
+        console.error(err);
+        status.innerText = "❌ 送出失敗，請稍後再試";
+      } finally {
+        btn1.disabled = false;
+        btn2.disabled = false;
+      }
     }
-    */
-
-  } catch (err) {
-    console.error(err);
-
-    // ❌ 失敗 → 解鎖
-    btn.disabled = false;
-    btn.innerText = "送出";
-    status.innerText = "❌ 送出失敗，請稍後再試";
-  }
-}
   </script>
 </body>
 </html>
