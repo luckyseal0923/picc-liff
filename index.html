@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <title>PICC 任務建立</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- LIFF SDK -->
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
@@ -54,16 +56,15 @@
       border-radius: 8px;
       font-size: 16px;
       cursor: pointer;
+      color: #fff;
     }
 
     #submitBtn {
-      background: #06c755;
-      color: #fff;
+      background: #06c755; /* 原本綠色 */
     }
 
     #fastBtn {
-      background: #ff7043;
-      color: #fff;
+      background: #ff7043; /* 自起單橘色 */
     }
 
     button:disabled {
@@ -93,22 +94,31 @@
     <label>病人姓名</label>
     <input id="name" placeholder="例如：王大明" />
 
-    <!-- 原本按鈕（不變） -->
-    <button id="submitBtn" onclick="submitForm(false)">送出</button>
+    <!-- 原本流程：起單 -->
+    <button id="submitBtn" onclick="submitForm(false)">
+      送出
+    </button>
 
-    <!-- 新增：自起單自回報 -->
-    <button id="fastBtn" onclick="submitForm(true)">自起單・自回報</button>
+    <!-- 新流程：自起單・自回報 -->
+    <button id="fastBtn" onclick="submitForm(true)">
+      自起單・自回報
+    </button>
 
     <div class="hint" id="status"></div>
   </div>
 
   <script>
-    const N8N_WEBHOOK_URL = "https://chihwei-n8n.zeabur.app/webhook/picc-booking";
+    /***********************
+     * 🔴 原本的 booking webhook（不變）
+     ***********************/
+    const N8N_WEBHOOK_URL =
+      "https://chihwei-n8n.zeabur.app/webhook/picc-booking";
 
     /***********************
-     * 🔴 只要改這一行
+     * 🔴 自回報頁網址（請確認）
      ***********************/
-    const REPORT_PAGE_URL = "https://luckyseal0923.github.io/picc-report-ui/picc-self-report.html"; // ← 改成 report.html 或 LIFF 回報頁
+    const REPORT_PAGE_URL =
+      "https://luckyseal0923.github.io/picc-report-ui/picc-self-report.html";
 
     let lineUserId = null;
 
@@ -132,6 +142,10 @@
 
     initLIFF();
 
+    /**
+     * goReport = false → 原本起單流程
+     * goReport = true  → 自起單・自回報
+     */
     async function submitForm(goReport) {
       const bedNo = document.getElementById("bedNo").value.trim();
       const mrn = document.getElementById("mrn").value.trim();
@@ -141,15 +155,33 @@
       const btn2 = document.getElementById("fastBtn");
 
       if (!bedNo || !mrn || !name) {
-        alert("請填寫所有欄位");
+        alert("請填寫床號、病歷號與病人姓名");
         return;
       }
 
       btn1.disabled = true;
       btn2.disabled = true;
-      status.innerText = "送出中…";
+      status.innerText = "處理中…";
 
       try {
+        /* =========================
+           🟠 自起單・自回報（新路徑）
+        ========================= */
+        if (goReport) {
+          const params = new URLSearchParams({
+            bedNo,
+            chartNo: mrn, // ⭐ 與 self-report 一致
+            name
+          });
+
+          window.location.href =
+            REPORT_PAGE_URL + "?" + params.toString();
+          return;
+        }
+
+        /* =========================
+           🟢 原本起單流程（完全不變）
+        ========================= */
         await fetch(N8N_WEBHOOK_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -163,14 +195,6 @@
           })
         });
 
-        if (goReport) {
-          // 👉 直接跳轉到回報頁（帶資料）
-          const params = new URLSearchParams({ bedNo, mrn, name });
-          window.location.href = REPORT_PAGE_URL + "?" + params.toString();
-          return;
-        }
-
-        // 原本送出行為（不變）
         status.innerText = "✅ 已成功送出";
         document.getElementById("bedNo").value = "";
         document.getElementById("mrn").value = "";
